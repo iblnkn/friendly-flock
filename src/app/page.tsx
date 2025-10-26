@@ -10,10 +10,10 @@ export default function Page() {
     <main className="min-h-screen" style={{ background: 'var(--bg)', padding: 'var(--s-5)' }}>
       <div className="mx-auto max-w-7xl space-y-6">
         {/* App header (retro style) */}
-        <WindowCard title="Bird Buddy" retro icon="🐦" className="overflow-hidden">
+        <WindowCard title="Friendly Flock" retro icon="🐦" className="overflow-hidden">
           <div style={{ padding: 'var(--s-2)' }}>
             <h1 className="mb-2" style={{ fontFamily: 'var(--font-tight)' }}>
-              Bird Buddy
+              Friendly Flock
             </h1>
             <p className="muted" style={{ fontSize: 'var(--step-0)' }}>
               Your personal BirdWeather dashboard

@@ -565,11 +565,9 @@ export async function processHighlights(stationIds: string[], todaysDetections: 
     });
 
     // Sort by confidence and return top highlights
-    const result = highlights
+    return highlights
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, 5);
-    
-    return result;
       
   } catch (error) {
     console.error('Error processing highlights:', error);
@@ -696,6 +694,7 @@ export function processSpeciesSummary(detections: Detection[]): Array<{
   count: number;
   timeWindow: string;
   station: string;
+  stationId: string;
   confidence: number;
 }> {
   const speciesMap = new Map<string, {

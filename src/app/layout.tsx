@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bird Buddy - BirdWeather Dashboard",
+  title: "Friendly Flock - BirdWeather Dashboard",
   description: "A modern dashboard for BirdWeather with Win95 vibes",
 };
 

@@ -1,8 +1,8 @@
-# Bird Buddy - Environment Setup Guide
+# Friendly Flock - Environment Setup Guide
 
 ## 🚀 Quick Start
 
-Your Bird Buddy dashboard is ready! Here's how to get it running with real BirdWeather data.
+Your Friendly Flock dashboard is ready! Here's how to get it running with real BirdWeather data.
 
 ## 📋 Prerequisites
 

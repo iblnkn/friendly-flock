@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Bird Buddy Deployment Helper Script
+# Friendly Flock Deployment Helper Script
 
-echo "🐦 Bird Buddy Deployment Helper"
+echo "🐦 Friendly Flock Deployment Helper"
 echo "================================"
 
 # Check if we're in the right directory
 if [ ! -f "package.json" ]; then
-    echo "❌ Error: Please run this script from the bird-buddy root directory"
+    echo "❌ Error: Please run this script from the friendly-flock root directory"
     exit 1
 fi
 
@@ -21,14 +21,14 @@ if [ ! -d ".git" ]; then
     echo "📦 Initializing Git repository..."
     git init
     git add .
-    git commit -m "Initial commit: Bird Buddy app"
+    git commit -m "Initial commit: Friendly Flock app"
 fi
 
 # Check if remote origin exists
 if ! git remote get-url origin > /dev/null 2>&1; then
     echo "🔗 No GitHub remote found. Please:"
     echo "1. Create a new repository on GitHub"
-    echo "2. Add it as origin: git remote add origin https://github.com/yourusername/bird-buddy.git"
+    echo "2. Add it as origin: git remote add origin https://github.com/yourusername/friendly-flock.git"
     echo "3. Push your code: git push -u origin main"
     echo ""
     read -p "Press Enter when ready..."

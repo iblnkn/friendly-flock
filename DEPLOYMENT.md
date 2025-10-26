@@ -1,4 +1,4 @@
-# Bird Buddy - Deployment Guide
+# Friendly Flock - Deployment Guide
 
 ## 🚀 Quick Deploy to Vercel (Recommended)
 

@@ -1,4 +1,4 @@
-# Bird Buddy - Environment Setup
+# Friendly Flock - Environment Setup
 
 ## Required Environment Variables
 

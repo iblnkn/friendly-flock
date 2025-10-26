@@ -1,4 +1,4 @@
-# 🐦 Bird Buddy - BirdWeather Dashboard
+# 🐦 Friendly Flock - BirdWeather Dashboard
 
 A modern, responsive BirdWeather dashboard with nostalgic Win95 vibes. Built with Next.js, Tailwind CSS, and GraphQL.
 

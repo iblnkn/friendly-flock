@@ -1,0 +1,436 @@
+/* --- Foundations -------------------------------------------------------- */
+
+/* Keep 98.css available (scoped nostalgia), but don't lean on it globally */
+@import url('https://unpkg.com/98.css'); /* optional utilities only */
+
+/* Tailwind (PostCSS) */
+@import "tailwindcss";
+
+/* Fonts (load Inter/Inter Tight via <link> or @import) */
+/* https://fonts.google.com/specimen/Inter , Inter Tight */
+:root {
+  /* Palette (light theme) */
+  --bg: #F6F6F7;          /* app background */
+  --surface: #FFFFFF;     /* primary surface */
+  --surface-alt: #FAFAFB; /* subtle alt surface */
+  --border: #E6E6EA;      /* hairlines */
+  --text: #141414;        /* body text */
+  --muted: #6B6B76;       /* secondary text */
+
+  /* Accent — pick 1 and stick to it */
+  --accent: #0FB5B3;      /* teal */
+  --accent-ink: #063736;  /* readable text on accent */
+
+  /* Retro/ink system */
+  --ink: #000000;                    /* hard outline */
+  --panel: #FFFFFF;                  /* flat surface */
+  --panel-alt: #FAFAFA;              /* light alt */
+  --shadow-ink-1: 2px 2px 0 #000;    /* crisp offset */
+  --shadow-ink-2: 3px 3px 0 #000;    /* stronger */
+
+  /* Win95 nods (sparingly) */
+  --bevel-light: #FFFFFF;
+  --bevel-dark: #B9B9B9;
+
+  /* Typographic scale with fluid sizing */
+  --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --font-tight: 'Inter Tight', 'Inter', system-ui, sans-serif;
+  --font-mono: 'Courier New', 'Courier', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  
+  /* Fluid typography */
+  --step-0: clamp(15px, 0.92vw + 12px, 16px); /* body */
+  --step-1: clamp(16px, 1vw + 13px, 18px);    /* small */
+  --step-2: clamp(18px, 1.2vw + 14px, 22px); /* h2 */
+  --step-3: clamp(22px, 1.6vw + 16px, 28px); /* h1 */
+
+  /* Radius & elevation */
+  --radius-0: 0px;                   /* square */
+  --radius-1: 6px;                   /* sparing */
+  --radius-2: 12px;
+  --shadow-1: 0 1px 2px rgba(0,0,0,.06), 0 1px 1px rgba(0,0,0,.04);
+  --shadow-2: 0 8px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
+
+  /* Motion */
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --dur-fast: 140ms;
+  --dur-med: 220ms;
+
+  /* 8px grid spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-med: 1ms;
+    --ease: linear;
+  }
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--step-0);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Typography hierarchy */
+h1 { 
+  font-family: var(--font-tight);
+  font-size: var(--step-3);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
+}
+
+h2 { 
+  font-family: var(--font-tight);
+  font-size: var(--step-2);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+}
+
+h3, h4, h5, h6 {
+  font-family: var(--font-tight);
+  font-size: var(--step-1);
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Links & focus rings (visible, AA) */
+a { color: var(--accent); text-decoration-thickness: 1px; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- Components ---------------------------------------------------------- */
+
+/* Modern card: flat by default, clean and purposeful */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+.card:hover { 
+  box-shadow: var(--shadow-2); 
+  transform: translateY(-1px); 
+}
+
+/* Optional retro bevel (apply per-component when you want the wink) */
+.bevel-95 {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius-1);
+  border: 1px solid var(--border);
+}
+.bevel-95::before,
+.bevel-95::after {
+  content: "";
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+}
+.bevel-95::before { border-top: 1px solid var(--bevel-light); border-left: 1px solid var(--bevel-light); }
+.bevel-95::after  { border-bottom: 1px solid var(--bevel-dark); border-right: 1px solid var(--bevel-dark); }
+
+/* Titlebar: cleaner gradient + tighter density */
+.titlebar {
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between;
+  padding: 6px 10px; /* slightly tighter */
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #F0F1F4 0%, #E9EAEE 100%);
+  border-top-left-radius: calc(var(--radius-1) - 1px);
+  border-top-right-radius: calc(var(--radius-1) - 1px);
+  font-family: var(--font-tight); 
+  font-weight: 600; 
+  letter-spacing: .1px;
+}
+.titlebar .left { 
+  display: flex; 
+  align-items: center; 
+  gap: var(--s-2); 
+}
+.titlebar .icon { 
+  width: 16px; 
+  height: 16px; 
+  opacity: .8; 
+}
+.titlebar .actions { 
+  display: flex; 
+  gap: var(--s-1); 
+}
+
+/* Buttons: modern default, retro on demand */
+.btn {
+  background: #F6F7F9; 
+  border: 1px solid var(--border);
+  padding: 6px 10px; 
+  border-radius: 8px; 
+  font-family: 'Courier New', 'Courier', monospace;
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), 
+              transform var(--dur-fast) var(--ease);
+  min-height: 44px; /* accessibility: clickable targets ≥ 44×44px */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:hover { 
+  background: #ECECF2; 
+  transform: translateY(-0.5px); 
+}
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Retro button style (opt-in) */
+.btn[data-style="retro"] { 
+  position: relative; 
+}
+.btn[data-style="retro"]::before { 
+  content: ""; 
+  position: absolute; 
+  inset: 0;
+  border-top: 1px solid var(--bevel-light); 
+  border-left: 1px solid var(--bevel-light); 
+  border-radius: 8px; 
+  pointer-events: none;
+}
+.btn[data-style="retro"]::after { 
+  content: ""; 
+  position: absolute; 
+  inset: 0;
+  border-bottom: 1px solid var(--bevel-dark); 
+  border-right: 1px solid var(--bevel-dark); 
+  border-radius: 8px; 
+  pointer-events: none;
+}
+
+/* Section header (for mini-panels) */
+.section-h {
+  font-family: var(--font-tight);
+  font-size: 14px; font-weight: 700; letter-spacing: .3px;
+  padding: 8px 10px; color: var(--muted);
+}
+
+/* Species row chip */
+.species {
+  display: grid; 
+  grid-template-columns: 28px 1fr auto; 
+  gap: var(--s-2); 
+  align-items: center;
+  padding: var(--s-2); 
+  border-radius: 8px; 
+  border: 1px solid var(--border);
+  transition: background var(--dur-fast) var(--ease);
+  background: var(--surface-alt);
+}
+.species:hover { background: #FDFDFE; }
+.species .thumb { 
+  width: 28px; 
+  height: 28px; 
+  border-radius: 6px; 
+  object-fit: cover; 
+}
+.species .name { 
+  font-weight: 600; 
+  font-size: var(--step-0);
+}
+.species .meta { 
+  color: var(--muted); 
+  font-size: 12px; 
+}
+
+/* Pills with color discipline */
+.species .pill {
+  background: color-mix(in srgb, var(--accent) 16%, white);
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  padding: 2px 10px; 
+  border-radius: 999px; 
+  font-size: 12px; 
+  font-weight: 700;
+}
+@supports not (color-mix(in srgb, black 10%, white)) {
+  .species .pill { 
+    background: #E6F6F6; 
+    border-color: #D1F2F2;
+  }
+}
+
+/* Event badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: white; border-radius: 999px;
+  padding: 2px 10px; font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+
+/* Micro sparkline container */
+.sparkline { width: 100%; height: 28px; }
+
+/* Now Playing ticker */
+.ticker {
+  display: flex; gap: 12px; overflow: hidden; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ticker .item { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
+
+/* Subtle checker hover (nostalgic, very low contrast) */
+.checker-hover:hover {
+  background-image:
+    linear-gradient(45deg, rgba(0,0,0,.03) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(0,0,0,.03) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(0,0,0,.03) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(0,0,0,.03) 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+}
+
+/* --- Retro Building Blocks (opt-in) ------------------------------------ */
+
+/* Panels & cards — flat, squared, ink outline */
+.panel-retro {
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-0);
+  box-shadow: var(--shadow-ink-1);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.panel-retro:hover {
+  transform: translateY(-1px);
+}
+
+/* Titlebar 95 — thin strip, no heavy gradient */
+.titlebar-95 {
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--ink);
+  background: #EDEFF0; /* very light gray */
+  font-family: var(--font-tight); 
+  font-weight: 700; 
+  letter-spacing: .1px;
+}
+.titlebar-95 .left { 
+  display: flex; 
+  align-items: center; 
+  gap: var(--s-2); 
+}
+.titlebar-95 .icon { 
+  width: 16px; 
+  height: 16px; 
+  opacity: .9; 
+}
+.titlebar-95 .actions { 
+  display: flex; 
+  gap: var(--s-1); 
+}
+
+/* Buttons — square, clicky, accessible size */
+.btn-retro {
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-0);
+  padding: 8px 10px;       /* denser than 12–14px */
+  min-height: 44px;        /* WCAG target size */
+  box-shadow: var(--shadow-ink-1);
+  transition: transform var(--dur-fast) var(--ease), 
+              background var(--dur-fast) var(--ease);
+  font-family: 'Courier New', 'Courier', monospace;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-retro:hover { 
+  background: #f0f0f0; 
+  transform: translateY(-1px); 
+}
+.btn-retro:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.btn-retro[data-variant="primary"] { 
+  background: var(--accent); 
+  color: #fff; 
+}
+.btn-retro[data-variant="ghost"] { 
+  background: #fff; 
+}
+
+/* Retro species rows */
+.species-retro {
+  display: grid; 
+  grid-template-columns: 28px 1fr auto; 
+  gap: var(--s-2); 
+  align-items: center;
+  padding: var(--s-2); 
+  border-radius: var(--radius-0); 
+  border: 1px solid var(--ink);
+  background: var(--panel-alt);
+  transition: background var(--dur-fast) var(--ease);
+}
+.species-retro:hover { 
+  background: #F5F5F5; 
+}
+.species-retro .thumb { 
+  width: 28px; 
+  height: 28px; 
+  border-radius: var(--radius-0); 
+  object-fit: cover; 
+  border: 1px solid var(--ink);
+}
+.species-retro .name { 
+  font-weight: 600; 
+  font-size: var(--step-0);
+}
+.species-retro .meta { 
+  color: var(--muted); 
+  font-size: 12px; 
+}
+
+/* Retro pills with ink borders */
+.species-retro .pill {
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--ink);
+  padding: 2px 8px; 
+  border-radius: var(--radius-0); 
+  font-size: 11px; 
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+/* Utility classes */
+.muted { color: var(--muted); }

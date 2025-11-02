@@ -44,8 +44,8 @@ export default function HighlightsCard() {
 
     fetchHighlights(true); // Initial load
     
-    // Set up periodic refresh every 60 seconds
-    const interval = setInterval(() => fetchHighlights(false), 60000);
+    // Set up periodic refresh every 5 minutes (reduced from 60s to prevent API overload)
+    const interval = setInterval(() => fetchHighlights(false), 5 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [stations]);
@@ -85,7 +85,7 @@ export default function HighlightsCard() {
   };
 
   return (
-    <WindowCard title={`Today's Highlights${isRefreshing ? ' 🔄' : ''}`} retro icon="⭐">
+    <WindowCard title={`Last 24 Hours Highlights${isRefreshing ? ' 🔄' : ''}`} retro icon="⭐">
       <div className="space-y-3">
         {isLoading ? (
           <div className="text-center py-8 muted">
@@ -137,13 +137,13 @@ export default function HighlightsCard() {
         ) : stations.length === 0 ? (
           <div className="text-center py-12 muted">
             <div className="text-5xl mb-4">🔍</div>
-            <p className="text-lg font-medium mb-2">No highlights today</p>
-            <p className="text-sm">Add stations to see first-ever, first-of-season, and unusual detections</p>
+            <p className="text-lg font-medium mb-2">No highlights in the last 24 hours</p>
+            <p className="text-sm">Add stations to see notable detections</p>
           </div>
         ) : (
           <div className="text-center py-12 muted">
             <div className="text-5xl mb-4">🔍</div>
-            <p className="text-lg font-medium mb-2">No highlights today</p>
+            <p className="text-lg font-medium mb-2">No highlights in the last 24 hours</p>
             <p className="text-sm">No notable detections found for your stations</p>
           </div>
         )}

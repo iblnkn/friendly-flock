@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Station, getCounts, clearHistoricalCache, type Counts } from './dataService';
+import { Station, getCounts, clearTodayCache, type Counts } from './dataService';
 
 interface StationContextType {
   stations: Station[];
@@ -25,7 +25,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
     const savedStations = localStorage.getItem('bird-buddy-stations');
     if (savedStations) {
       try {
-        setStations(JSON.parse(savedStations));
+        const parsed = JSON.parse(savedStations);
+        setTimeout(() => setStations(parsed), 0);
       } catch (error) {
         console.error('Error loading stations from localStorage:', error);
       }
@@ -34,30 +35,41 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
   // Save stations to localStorage whenever stations change
   useEffect(() => {
-    localStorage.setItem('bird-buddy-stations', JSON.stringify(stations));
+    setTimeout(() => {
+      localStorage.setItem('bird-buddy-stations', JSON.stringify(stations));
+    }, 0);
   }, [stations]);
 
   // Load counts when stations change
   useEffect(() => {
     if (stations.length > 0) {
-      setIsLoadingCounts(true);
-      setError(null);
+      setTimeout(() => {
+        setIsLoadingCounts(true);
+        setError(null);
+      }, 0);
       
       const stationIds = stations.map(s => s.id);
       getCounts(stationIds)
-        .then(setCounts)
+        .then(counts => {
+          setTimeout(() => setCounts(counts), 0);
+        })
         .catch(error => {
           console.error('Error fetching counts:', error);
-          setError('Failed to load station statistics');
-          setCounts(null);
+          setTimeout(() => {
+            setError('Failed to load station statistics');
+            setCounts(null);
+            setIsLoadingCounts(false);
+          }, 0);
         })
         .finally(() => {
-          setIsLoadingCounts(false);
+          setTimeout(() => setIsLoadingCounts(false), 0);
         });
     } else {
-      setCounts(null);
-      setIsLoadingCounts(false);
-      setError(null);
+      setTimeout(() => {
+        setCounts(null);
+        setIsLoadingCounts(false);
+        setError(null);
+      }, 0);
     }
   }, [stations]);
 
@@ -70,13 +82,13 @@ export function StationProvider({ children }: { children: ReactNode }) {
       return [...prev, station];
     });
     // Clear cache when stations change
-    clearHistoricalCache();
+    clearTodayCache();
   };
 
   const removeStation = (stationId: string) => {
     setStations(prev => prev.filter(s => s.id !== stationId));
     // Clear cache when stations change
-    clearHistoricalCache();
+    clearTodayCache();
   };
 
   return (

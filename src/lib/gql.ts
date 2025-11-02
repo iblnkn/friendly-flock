@@ -1,6 +1,6 @@
 // Simple GraphQL client wrapper for server-side and client-side usage
 
-export async function gql<T>(query: string, variables?: Record<string, any>) {
+export async function gql<T>(query: string, variables?: Record<string, unknown>) {
   const res = await fetch('/api/birdweather', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

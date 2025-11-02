@@ -26,19 +26,23 @@ export default function PatternsCard() {
   useEffect(() => {
     const fetchPatterns = async () => {
       if (stations.length === 0) {
-        setPatterns([]);
-        setError(null);
+        setTimeout(() => {
+          setPatterns([]);
+          setError(null);
+        }, 0);
         return;
       }
 
-      setIsLoading(true);
-      setError(null);
+      setTimeout(() => {
+        setIsLoading(true);
+        setError(null);
+      }, 0);
       
       try {
         const stationIds = stations.map(s => s.id);
-        const [timeOfDayData, dailyData] = await Promise.all([
+        const [timeOfDayData] = await Promise.all([
           getTimeOfDayCounts(stationIds),
-          getDailyDetectionCounts(stationIds)
+          getDailyDetectionCounts(stationIds) // Keep for future use
         ]);
 
         // Process the data to create patterns
@@ -58,13 +62,17 @@ export default function PatternsCard() {
             };
           });
 
-        setPatterns(processedPatterns);
+        setTimeout(() => {
+          setPatterns(processedPatterns);
+        }, 0);
       } catch (error) {
         console.error('Error fetching patterns:', error);
-        setError('Failed to load pattern data');
-        setPatterns([]);
+        setTimeout(() => {
+          setError('Failed to load pattern data');
+          setPatterns([]);
+        }, 0);
       } finally {
-        setIsLoading(false);
+        setTimeout(() => setIsLoading(false), 0);
       }
     };
 
@@ -146,7 +154,7 @@ export default function PatternsCard() {
               </div>
               
               <div className="sparkline-container">
-                <div className="text-xs muted mb-2">Peak activity today vs typical</div>
+                <div className="text-xs muted mb-2">Peak activity (last 24 hours) vs typical</div>
                 <Sparkline data={pattern.sparkline} />
                 <div className="flex justify-between text-xs muted mt-2">
                   <span>00:00</span>

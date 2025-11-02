@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { WindowCard } from './WindowCard';
-import { getTodayDetections, processSpeciesSummary, getStationColor, getStationBorderColor, getStationName, type Detection } from '@/lib/dataService';
+import { getTodayDetections, processSpeciesSummary, getStationColor, getStationBorderColor } from '@/lib/dataService';
 import { useStations } from '@/lib/StationContext';
 
 interface SpeciesDetection {
@@ -60,7 +60,7 @@ export default function TodaysSpeciesCard() {
   }, [stations]);
 
   return (
-    <WindowCard title="Today's Species" retro icon="📋">
+    <WindowCard title="Last 24 Hours Species" retro icon="📋">
       <div className="space-y-2">
         {isLoading ? (
           <div className="text-center py-8 muted">
@@ -109,13 +109,13 @@ export default function TodaysSpeciesCard() {
         ) : stations.length === 0 ? (
           <div className="text-center py-8 muted">
             <div className="text-4xl mb-3">📊</div>
-            <p className="text-sm font-medium">No species detected today</p>
+            <p className="text-sm font-medium">No species detected in the last 24 hours</p>
             <p className="text-xs">Add stations to see species counts and time windows</p>
           </div>
         ) : (
           <div className="text-center py-8 muted">
             <div className="text-4xl mb-3">📊</div>
-            <p className="text-sm font-medium">No species detected today</p>
+            <p className="text-sm font-medium">No species detected in the last 24 hours</p>
             <p className="text-xs">No detections found for your stations</p>
           </div>
         )}

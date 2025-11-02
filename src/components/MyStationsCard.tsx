@@ -2,22 +2,26 @@
 
 import { useState } from 'react';
 import { WindowCard } from './WindowCard';
-import { searchStations, getStationInfo, getStationColor, getStationBorderColor } from '@/lib/dataService';
+import { searchStations, getStationInfo, getStationColor, getStationBorderColor, type Station } from '@/lib/dataService';
 import { useStations } from '@/lib/StationContext';
 
 export default function MyStationsCard() {
   const { stations, addStation, removeStation, counts, isLoadingCounts, error } = useStations();
   const [newStationId, setNewStationId] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Station[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   const handleAddStation = async () => {
-    if (!newStationId.trim()) return;
+    const trimmedId = newStationId.trim();
+    if (!trimmedId || trimmedId.length > 50) {
+      alert('Please enter a valid Station ID (max 50 characters)');
+      return;
+    }
     
     setIsSearching(true);
     try {
       // First try to get station info directly by ID
-      const stationInfo = await getStationInfo(newStationId.trim());
+      const stationInfo = await getStationInfo(trimmedId);
       if (stationInfo) {
         addStation(stationInfo);
         setNewStationId('');
@@ -40,7 +44,7 @@ export default function MyStationsCard() {
     }
   };
 
-  const selectSearchResult = (station: any) => {
+  const selectSearchResult = (station: Station) => {
     addStation(station);
     setSearchResults([]);
     setNewStationId('');

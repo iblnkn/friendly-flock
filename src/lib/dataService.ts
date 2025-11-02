@@ -1,7 +1,6 @@
 // Data service for BirdWeather API
 import { gql } from './gql';
 import {
-  STATION_DETECTIONS,
   TODAY_DETECTIONS,
   TOP_SPECIES,
   TIME_OF_DAY_COUNTS,
@@ -116,14 +115,23 @@ export interface Counts {
   birdnet?: number;
 }
 
-// Helper function to create time period for "today"
+// Helper function to create time period for "last 24 hours" (rolling window)
 function getTodayPeriod() {
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  
+  // Use date range that includes the entire 24-hour window
+  // The API may interpret dates as start-of-day, so we use:
+  // from: date 24 hours ago (may include partial day)
+  // to: today's date + 1 (to ensure we get today's data up to now)
+  // This ensures we capture all detections from the last 24 hours
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
   
   return {
-    from: startOfDay.toISOString().split('T')[0],
-    to: now.toISOString().split('T')[0],
+    from: twentyFourHoursAgo.toISOString().split('T')[0],
+    to: tomorrow.toISOString().split('T')[0], // Inclusive up to end of today
   };
 }
 
@@ -140,10 +148,16 @@ function getLastWeekPeriod() {
 
 // Search for stations
 export async function searchStations(query: string): Promise<Station[]> {
+  // Validate and sanitize input
+  const sanitizedQuery = query.trim().slice(0, 200); // Limit length
+  if (!sanitizedQuery) {
+    return [];
+  }
+  
   try {
     const result = await gql<{ stations: { nodes: Station[] } }>(
       SEARCH_STATIONS,
-      { query, first: 20 }
+      { query: sanitizedQuery, first: 20 }
     );
     return result.stations.nodes;
   } catch (error) {
@@ -154,8 +168,14 @@ export async function searchStations(query: string): Promise<Station[]> {
 
 // Get station information
 export async function getStationInfo(stationId: string): Promise<Station | null> {
+  // Validate input: alphanumeric and reasonable length
+  const sanitizedId = stationId.trim().slice(0, 50);
+  if (!sanitizedId || !/^[a-zA-Z0-9_-]+$/.test(sanitizedId)) {
+    return null;
+  }
+  
   try {
-    const result = await gql<{ station: Station }>(STATION_INFO, { id: stationId });
+    const result = await gql<{ station: Station }>(STATION_INFO, { id: sanitizedId });
     return result.station;
   } catch (error) {
     console.error('Error fetching station info:', error);
@@ -163,27 +183,79 @@ export async function getStationInfo(stationId: string): Promise<Station | null>
   }
 }
 
-// Get today's detections for stations
+// Get detections from last 24 hours for stations (with caching to reduce API calls)
 export async function getTodayDetections(stationIds: string[]): Promise<Detection[]> {
+  const cacheKey = `today_${stationIds.sort().join('_')}`;
+  const now = Date.now();
+  const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+  
+  // Check cache first
+  const cached = todayDetectionsCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    // Filter cached data to ensure it's within last 24 hours
+    // But recalculate 24h ago since time has passed
+    const filtered = cached.data.filter(d => {
+      const detectionTime = new Date(d.timestamp).getTime();
+      return detectionTime >= twentyFourHoursAgo;
+    });
+    return filtered;
+  }
+  
+  // Clear expired cache
+  if (cached && cached.expiresAt <= now) {
+    todayDetectionsCache.delete(cacheKey);
+  }
+  
   if (!checkRateLimit()) {
-    console.warn('Rate limit exceeded, skipping API call');
+    // Return stale cache if available to avoid blocking
+    if (cached) {
+      const filtered = cached.data.filter(d => {
+        const detectionTime = new Date(d.timestamp).getTime();
+        return detectionTime >= twentyFourHoursAgo;
+      });
+      return filtered;
+    }
     return [];
   }
   
   try {
     recordApiCall();
+    const period = getTodayPeriod();
     const result = await gql<{ detections: { nodes: Detection[] } }>(
       TODAY_DETECTIONS,
-      { stationIds, period: getTodayPeriod() }
+      { stationIds, period }
     );
-    return result.detections.nodes;
+    
+    // Filter to only include detections from the actual last 24 hours
+    // This ensures we get precise 24-hour window even if API date filtering is imprecise
+    const filteredDetections = result.detections.nodes.filter(d => {
+      const detectionTime = new Date(d.timestamp).getTime();
+      return detectionTime >= twentyFourHoursAgo;
+    });
+    
+    // Cache the filtered results
+    todayDetectionsCache.set(cacheKey, {
+      data: filteredDetections,
+      timestamp: now,
+      expiresAt: now + TODAY_CACHE_DURATION
+    });
+    
+    return filteredDetections;
   } catch (error) {
-    console.error('Error fetching today\'s detections:', error);
+    console.error('Error fetching last 24 hours detections:', error);
+    // Return stale cache if available, but still filter to last 24 hours
+    if (cached) {
+      const filtered = cached.data.filter(d => {
+        const detectionTime = new Date(d.timestamp).getTime();
+        return detectionTime >= twentyFourHoursAgo;
+      });
+      return filtered;
+    }
     return [];
   }
 }
 
-// Get top species for a time period
+// Get top species for last 24 hours
 export async function getTopSpecies(stationIds: string[], limit: number = 10): Promise<SpeciesCount[]> {
   try {
     const result = await gql<{ topSpecies: SpeciesCount[] }>(
@@ -236,24 +308,31 @@ export async function getCounts(stationIds: string[]): Promise<Counts | null> {
   }
 }
 
-// Cache for historical data to avoid repeated API calls
-const historicalDataCache = new Map<string, {
+// Cache for last 24 hours detections to reduce API calls
+const todayDetectionsCache = new Map<string, {
   data: Detection[];
   timestamp: number;
   expiresAt: number;
 }>();
 
-// Cache duration: 6 hours for historical data (since it's expensive to fetch)
-const CACHE_DURATION = 6 * 60 * 60 * 1000;
+// Cache duration: 5 minutes for last 24 hours detections
+const TODAY_CACHE_DURATION = 5 * 60 * 1000;
 
-// Rate limiting: track API calls per minute
+// Rate limiting: track API calls per minute with sliding window
 const apiCallTracker = new Map<string, number[]>();
-const MAX_CALLS_PER_MINUTE = 30; // Conservative limit
+const MAX_CALLS_PER_MINUTE = 10; // Very conservative limit to avoid blocking
+const MIN_CALL_INTERVAL = 1000; // Minimum 1 second between calls
+let lastApiCallTime = 0;
 
-// Rate limiting helper
+// Rate limiting helper - prevents API overload
 function checkRateLimit(): boolean {
   const now = Date.now();
   const minuteAgo = now - 60000;
+  
+  // Enforce minimum interval between calls
+  if (now - lastApiCallTime < MIN_CALL_INTERVAL) {
+    return false;
+  }
   
   // Clean old entries
   apiCallTracker.forEach((calls, key) => {
@@ -275,6 +354,7 @@ function checkRateLimit(): boolean {
 
 function recordApiCall(): void {
   const now = Date.now();
+  lastApiCallTime = now;
   const key = 'global';
   const calls = apiCallTracker.get(key) || [];
   calls.push(now);
@@ -335,16 +415,16 @@ export function getStationName(stationId: string, stations: Station[]): string {
 }
 
 // Clear cache function for when stations are added/removed
-export function clearHistoricalCache() {
-  historicalDataCache.clear();
+export function clearTodayCache() {
+  todayDetectionsCache.clear();
 }
 
-// Get cache status for debugging
+// Get cache status for monitoring (useful for diagnostics)
 export function getCacheStatus() {
   const now = Date.now();
   const status: Array<{ key: string; expiresIn: number; dataCount: number }> = [];
   
-  historicalDataCache.forEach((value, key) => {
+  todayDetectionsCache.forEach((value, key) => {
     status.push({
       key,
       expiresIn: value.expiresAt - now,
@@ -355,319 +435,16 @@ export function getCacheStatus() {
   return status;
 }
 
-// Helper function to determine if a species is commonly detected
-function isCommonSpecies(speciesId: string, detectionCount: number, avgConfidence: number): boolean {
-  // A species is considered "common" if it has been detected frequently
-  return detectionCount > 20;
-}
+// Helper functions removed - simplified highlights no longer need historical analysis
 
-// Helper function to determine if a detection is truly unusual based on rarity and patterns
-function isUnusualDetection(detection: Detection, history: {
-  detectionCount: number;
-  avgConfidence: number;
-  recentDetections: Detection[];
-  firstDetection: Date;
-  lastDetection: Date;
-}): boolean {
-  const detectionCount = history.detectionCount;
-  const speciesName = detection.species.commonName.toLowerCase();
-  
-  // List of known common birds that should never be marked as unusual
-  const commonBirds = [
-    'house sparrow', 'eurasian collared-dove', 'house finch', 'american goldfinch',
-    'chickadee', 'cardinal', 'blue jay', 'robin', 'crow', 'raven', 'pigeon',
-    'starling', 'mockingbird', 'wren', 'sparrow', 'finch', 'dove', 'pigeon',
-    'canada goose', 'mallard', 'woodpecker', 'nuthatch', 'titmouse'
-  ];
-  
-  // Check if this is a known common bird
-  const isCommonBird = commonBirds.some(commonBird => 
-    speciesName.includes(commonBird) || commonBird.includes(speciesName)
-  );
-  
-  if (isCommonBird) {
-    console.log(`Skipping unusual check for common bird: ${detection.species.commonName}`);
-    return false;
-  }
-  
-  // Only mark as unusual if it's genuinely rare (detected < 3 times total in 2 years)
-  if (detectionCount < 3) {
-    return true;
-  }
-  
-  // Check for seasonal rarity - if this species hasn't been seen in the last 120 days
-  // This is more conservative than 60 days to avoid marking common birds as unusual
-  const oneHundredTwentyDaysAgo = new Date();
-  oneHundredTwentyDaysAgo.setDate(oneHundredTwentyDaysAgo.getDate() - 120);
-  
-  if (history.lastDetection < oneHundredTwentyDaysAgo) {
-    return true; // Haven't seen this species in over 4 months
-  }
-  
-  // Additional check: if it's a very common bird (detected > 50 times), 
-  // it should never be marked as unusual regardless of recent absence
-  if (detectionCount > 50) {
-    return false;
-  }
-  
-  return false;
-}
-
-// Process detections to find highlights (first-ever, first-of-season, unusual)
-export async function processHighlights(stationIds: string[], todaysDetections: Detection[]): Promise<Detection[]> {
+// Process detections to find highlights (simplified - no historical data fetching)
+// This version uses only last 24 hours data to avoid overwhelming the API
+export async function processHighlights(stationIds: string[], todaysDetections: Detection[]): Promise<Array<Detection & { highlightType: string }>> {
   if (todaysDetections.length === 0) return [];
 
-  try {
-    const cacheKey = `historical_${stationIds.sort().join('_')}`;
-    const now = Date.now();
-    
-    // Check cache first
-    let historicalDetections: Detection[] = [];
-    const cached = historicalDataCache.get(cacheKey);
-    
-    if (cached && cached.expiresAt > now) {
-      historicalDetections = cached.data;
-    } else {
-      // Fetch historical data with pagination
-      historicalDetections = await fetchHistoricalDetectionsWithPagination(stationIds);
-      
-      // Cache the results
-      historicalDataCache.set(cacheKey, {
-        data: historicalDetections,
-        timestamp: now,
-        expiresAt: now + CACHE_DURATION
-      });
-    }
-    
-    // Create a map of species detection history
-    const speciesHistory = new Map<string, {
-      firstDetection: Date;
-      lastDetection: Date;
-      detectionCount: number;
-      avgConfidence: number;
-      recentDetections: Detection[];
-    }>();
-    
-    const today = new Date().toISOString().split('T')[0];
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    
-    // Process historical detections
-    historicalDetections.forEach(detection => {
-      const detectionDate = detection.timestamp.split('T')[0];
-      if (detectionDate === today) return; // Skip today's detections
-      
-      const speciesId = detection.species.id;
-      const detectionTime = new Date(detection.timestamp);
-      
-      if (!speciesHistory.has(speciesId)) {
-        speciesHistory.set(speciesId, {
-          firstDetection: detectionTime,
-          lastDetection: detectionTime,
-          detectionCount: 0,
-          avgConfidence: 0,
-          recentDetections: []
-        });
-      }
-      
-      const history = speciesHistory.get(speciesId)!;
-      history.detectionCount++;
-      history.avgConfidence = (history.avgConfidence * (history.detectionCount - 1) + detection.confidence) / history.detectionCount;
-      
-      if (detectionTime < history.firstDetection) {
-        history.firstDetection = detectionTime;
-      }
-      if (detectionTime > history.lastDetection) {
-        history.lastDetection = detectionTime;
-      }
-      
-      // Track recent detections (last 90 days)
-      if (detectionTime >= ninetyDaysAgo) {
-        history.recentDetections.push(detection);
-      }
-    });
-
-    console.log(`Processed historical data for ${speciesHistory.size} species`);
-    console.log('Species with historical data:', Array.from(speciesHistory.keys()).map(id => {
-      const h = speciesHistory.get(id)!;
-      return `${id}: ${h.detectionCount} detections, last seen ${Math.floor((Date.now() - h.lastDetection.getTime()) / (1000 * 60 * 60 * 24))} days ago`;
-    }));
-
-    // Group today's detections by species
-    const speciesGroups = new Map<string, Detection[]>();
-    todaysDetections.forEach(detection => {
-      const speciesId = detection.species.id;
-      if (!speciesGroups.has(speciesId)) {
-        speciesGroups.set(speciesId, []);
-      }
-      speciesGroups.get(speciesId)!.push(detection);
-    });
-
-    const highlights: Array<Detection & { highlightType: string }> = [];
-
-    // Process each species detected today
-    speciesGroups.forEach((speciesDetections, speciesId) => {
-      const sortedDetections = speciesDetections.sort((a, b) => 
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-      
-      const firstDetectionToday = sortedDetections[0];
-      const history = speciesHistory.get(speciesId);
-      
-      // Determine highlight type
-      let highlightType = 'unusual';
-      
-      if (!history) {
-        // Only mark as first-ever if we have historical data but this species isn't in it
-        if (historicalDetections.length > 0) {
-          highlightType = 'first-ever';
-          console.log(`First-ever detection: ${firstDetectionToday.species.commonName} (not found in ${historicalDetections.length} historical detections)`);
-        } else {
-          // No historical data available, skip this detection
-          console.log(`Skipping ${firstDetectionToday.species.commonName} - no historical data available`);
-          return;
-        }
-      } else {
-        // Check if this is the first detection of the season
-        const daysSinceLastDetection = Math.floor(
-          (new Date().getTime() - history.lastDetection.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        
-        console.log(`${firstDetectionToday.species.commonName}: ${history.detectionCount} historical detections, last seen ${daysSinceLastDetection} days ago, confidence: ${firstDetectionToday.confidence}`);
-        
-        if (daysSinceLastDetection >= 90) {
-          // No detections in the last 90 days - could be first-of-season
-          highlightType = 'first-of-season';
-          console.log(`First-of-season detection: ${firstDetectionToday.species.commonName}`);
-        } else if (firstDetectionToday.confidence < 0.4) {
-          // Very low confidence - might be a misidentification, skip it
-          console.log(`Skipping ${firstDetectionToday.species.commonName} - very low confidence (${firstDetectionToday.confidence}), might be misidentification`);
-          return;
-        } else if (isUnusualDetection(firstDetectionToday, history)) {
-          // Truly unusual detection based on rarity and patterns
-          highlightType = 'unusual';
-          console.log(`Unusual detection: ${firstDetectionToday.species.commonName} (detected ${history.detectionCount} times total, last seen ${daysSinceLastDetection} days ago)`);
-        } else if (firstDetectionToday.confidence > 0.9 && history.detectionCount < 10) {
-          // High confidence detection of a moderately rare species
-          highlightType = 'rare-sighting';
-          console.log(`Rare sighting: ${firstDetectionToday.species.commonName} (high confidence: ${firstDetectionToday.confidence}, detected ${history.detectionCount} times total)`);
-        } else {
-          // Skip this detection as it's not particularly notable (seen within last 90 days)
-          console.log(`Skipping ${firstDetectionToday.species.commonName} - normal detection (${history.detectionCount} historical detections, last seen ${daysSinceLastDetection} days ago)`);
-          return;
-        }
-      }
-
-      highlights.push({
-        ...firstDetectionToday,
-        highlightType
-      });
-    });
-
-    // Sort by confidence and return top highlights
-    return highlights
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 5);
-      
-  } catch (error) {
-    console.error('Error processing highlights:', error);
-    // Fallback to simple processing if historical data fails
-    return processHighlightsSimple(todaysDetections);
-  }
-}
-
-// Fetch historical detections with proper pagination
-async function fetchHistoricalDetectionsWithPagination(stationIds: string[]): Promise<Detection[]> {
-  const allDetections: Detection[] = [];
-  let hasNextPage = true;
-  let after: string | undefined;
-  
-  // Get historical data for the last 2 years (for better seasonal detection)
-  const twoYearsAgo = new Date();
-  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-  
-  const historicalPeriod = {
-    from: twoYearsAgo.toISOString().split('T')[0],
-    to: new Date().toISOString().split('T')[0],
-  };
-
-  let pageCount = 0;
-  const maxPages = 50; // Safety limit to prevent infinite loops
-  
-  while (hasNextPage && allDetections.length < 5000 && pageCount < maxPages) {
-    try {
-      pageCount++;
-      
-      const result = await gql<{ 
-        detections: { 
-          nodes: Detection[];
-          pageInfo: {
-            hasNextPage: boolean;
-            endCursor: string;
-          };
-        } 
-      }>(
-        `
-          query historicalDetections($stationIds: [ID!], $period: InputDuration, $after: String) {
-            detections(
-              stationIds: $stationIds
-              period: $period
-              first: 100
-              after: $after
-              sortBy: "timestamp"
-            ) {
-              nodes {
-                id
-                timestamp
-                confidence
-                probability
-                score
-                species {
-                  id
-                  commonName
-                  scientificName
-                  thumbnailUrl
-                  color
-                }
-                station {
-                  id
-                  name
-                  location
-                }
-              }
-              pageInfo {
-                hasNextPage
-                endCursor
-              }
-            }
-          }
-        `,
-        { stationIds, period: historicalPeriod, after }
-      );
-      
-      allDetections.push(...result.detections.nodes);
-      hasNextPage = result.detections.pageInfo.hasNextPage;
-      after = result.detections.pageInfo.endCursor;
-      
-      // Add a small delay to be respectful to the API
-      if (hasNextPage) {
-        await new Promise(resolve => setTimeout(resolve, 150)); // Slightly longer delay for 2-year fetch
-      }
-    } catch (error) {
-      console.error('Error fetching historical detections:', error);
-      break;
-    }
-  }
-  
-  console.log(`Fetched ${allDetections.length} historical detections across ${pageCount} pages`);
-  
-  return allDetections;
-}
-
-// Simple fallback highlight processing
-function processHighlightsSimple(detections: Detection[]): Detection[] {
+  // Group last 24 hours detections by species
   const speciesGroups = new Map<string, Detection[]>();
-  detections.forEach(detection => {
+  todaysDetections.forEach(detection => {
     const speciesId = detection.species.id;
     if (!speciesGroups.has(speciesId)) {
       speciesGroups.set(speciesId, []);
@@ -675,18 +452,56 @@ function processHighlightsSimple(detections: Detection[]): Detection[] {
     speciesGroups.get(speciesId)!.push(detection);
   });
 
-  const highlights: Detection[] = [];
+  const highlights: Array<Detection & { highlightType: string }> = [];
+
+  // Process each species detected in last 24 hours
+  // Use only last 24 hours data - highlight based on confidence and frequency within the period
   speciesGroups.forEach((speciesDetections) => {
+    // Sort by timestamp to get first detection
     const sortedDetections = speciesDetections.sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
-    highlights.push(sortedDetections[0]);
+    
+    const firstDetectionInPeriod = sortedDetections[0];
+    const detectionCount = speciesDetections.length;
+    const avgConfidence = speciesDetections.reduce((sum, d) => sum + d.confidence, 0) / detectionCount;
+    
+    // Skip very low confidence detections (likely misidentifications)
+    if (avgConfidence < 0.4) {
+      return;
+    }
+    
+    // Determine highlight type based on last 24 hours patterns only
+    let highlightType = 'notable';
+    
+    // High confidence + first time seen in period = notable
+    if (detectionCount === 1 && avgConfidence > 0.85) {
+      highlightType = 'notable';
+    }
+    // Rare detection (very high confidence, single detection)
+    else if (detectionCount === 1 && avgConfidence > 0.95) {
+      highlightType = 'rare-sighting';
+    }
+    // Multiple detections but still high confidence = common in period
+    else if (detectionCount > 5) {
+      // Skip - too common in last 24 hours
+      return;
+    }
+    
+    highlights.push({
+      ...firstDetectionInPeriod,
+      highlightType
+    });
   });
 
+  // Sort by confidence and return top highlights (limit to 5)
   return highlights
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 5);
 }
+
+// Historical data fetching removed to prevent API overload
+// Highlights now use only last 24 hours data - no fallback needed
 
 // Process detections to get unique species with counts and time windows
 export function processSpeciesSummary(detections: Detection[]): Array<{

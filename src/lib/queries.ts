@@ -49,7 +49,7 @@ export const TODAY_DETECTIONS = `
     detections(
       stationIds: $stationIds
       period: $period
-      first: 100
+      first: 500
       sortBy: "timestamp"
     ) {
       nodes {

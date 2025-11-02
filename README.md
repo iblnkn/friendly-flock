@@ -5,10 +5,10 @@ A modern, responsive BirdWeather dashboard with nostalgic Win95 vibes. Built wit
 ## Features
 
 - **My Stations**: Add and manage your BirdWeather station IDs
-- **Today's Highlights**: First-ever, first-of-season, and unusual detections
+- **Today's Highlights**: Notable detections based on confidence and rarity
 - **Today's Species**: Unique species list with counts and time windows
-- **Now Playing**: Live ticker showing recent detections
-- **Patterns**: Activity sparklines and top species for the week
+- **Now Playing**: Live ticker showing recent detections via WebSocket
+- **Patterns**: Activity sparklines and weekly detection patterns
 
 ## Tech Stack
 
@@ -29,20 +29,15 @@ A modern, responsive BirdWeather dashboard with nostalgic Win95 vibes. Built wit
    npm install
    ```
 
-2. **Set up environment variables**:
-   Create `.env.local` in the root directory:
-   ```env
-   BIRDWEATHER_ENDPOINT=https://app.birdweather.com/graphql
-   BIRDWEATHER_TOKEN=YOUR_SECRET_TOKEN
-   ```
-
-3. **Run the development server**:
+2. **Run the development server**:
    ```bash
    npm run dev
    ```
 
-4. **Open your browser**:
+3. **Open your browser**:
    Navigate to [http://localhost:3000](http://localhost:3000)
+
+> **Note**: The BirdWeather API is public and requires no authentication or API tokens. The dashboard works out of the box!
 
 ## Usage
 
@@ -70,19 +65,15 @@ A modern, responsive BirdWeather dashboard with nostalgic Win95 vibes. Built wit
    - Add environment variables in Project Settings
    - Deploy!
 
-### Environment Variables for Production
-
-Add these in your Vercel project settings:
-- `BIRDWEATHER_ENDPOINT`: `https://app.birdweather.com/graphql`
-- `BIRDWEATHER_TOKEN`: Your BirdWeather API token
-
 ## API Integration
 
-The app uses a secure GraphQL proxy at `/api/birdweather` that:
-- Keeps your API token server-side
+The app uses a GraphQL proxy at `/api/birdweather` that:
 - Handles CORS issues
-- Provides rate limiting
+- Provides rate limiting (10 calls/minute with caching)
 - Supports both queries and subscriptions
+- Uses caching to minimize API calls (5-minute cache for today's data)
+
+> **Rate Limiting**: The app implements conservative rate limiting to prevent API overload. Today's detections are cached for 5 minutes, and highlights refresh every 5 minutes.
 
 ## GraphQL Queries
 

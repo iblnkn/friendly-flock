@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     let parsedBody;
     try {
       parsedBody = JSON.parse(body);
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({ 
           errors: [{ message: 'Invalid JSON in request body' }] 
@@ -23,10 +23,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate GraphQL request structure
-    if (!parsedBody.query) {
+    if (!parsedBody.query || typeof parsedBody.query !== 'string') {
       return new Response(
         JSON.stringify({ 
-          errors: [{ message: 'Missing GraphQL query' }] 
+          errors: [{ message: 'Missing or invalid GraphQL query' }] 
+        }),
+        { 
+          status: 400, 
+          headers: { 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
+    // Basic query size validation to prevent DoS
+    if (parsedBody.query.length > 10000) {
+      return new Response(
+        JSON.stringify({ 
+          errors: [{ message: 'GraphQL query too large' }] 
         }),
         { 
           status: 400, 
@@ -36,12 +49,6 @@ export async function POST(req: NextRequest) {
     }
 
     // BirdWeather API is public - no authentication required
-
-    // Log the request for debugging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Sending GraphQL request:', parsedBody.query);
-      console.log('Variables:', parsedBody.variables);
-    }
 
     const res = await fetch('https://app.birdweather.com/graphql', {
       method: 'POST',
@@ -67,11 +74,6 @@ export async function POST(req: NextRequest) {
     }
 
     const responseBody = await res.text();
-    
-    // Log response for debugging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('BirdWeather API response:', responseBody);
-    }
     
     return new Response(responseBody, {
       status: res.status,

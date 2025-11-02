@@ -57,24 +57,27 @@ export default function NowPlayingCard() {
         timestamp: detection.timestamp,
       };
 
-      setDetections(prev => [liveDetection, ...prev.slice(0, 4)]); // Keep last 5 detections
+      // Defer state update to avoid cascading renders
+      setTimeout(() => {
+        setDetections(prev => [liveDetection, ...prev.slice(0, 4)]); // Keep last 5 detections
+      }, 0);
     }
   }, [result.data]);
 
   // Update connection status
   useEffect(() => {
     if (stationIds.length === 0) {
-      setIsConnected(false);
+      setTimeout(() => setIsConnected(false), 0);
       return;
     }
 
     if (result.fetching) {
-      setIsConnected(true);
+      setTimeout(() => setIsConnected(true), 0);
     } else if (result.error) {
       console.error('Subscription error:', result.error);
-      setIsConnected(false);
+      setTimeout(() => setIsConnected(false), 0);
     } else {
-      setIsConnected(true);
+      setTimeout(() => setIsConnected(true), 0);
     }
   }, [result.fetching, result.error, stationIds.length]);
 
@@ -138,8 +141,10 @@ export default function NowPlayingCard() {
         }
       ];
 
-      setDetections(mockDetections);
-      setIsConnected(false);
+      setTimeout(() => {
+        setDetections(mockDetections);
+        setIsConnected(false);
+      }, 0);
     }
   }, [stations.length]);
 
@@ -150,7 +155,7 @@ export default function NowPlayingCard() {
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} style={{ borderRadius: 'var(--radius-0)' }}></div>
             <span className="text-sm muted font-medium">
-              {isConnected ? 'Live' : stations.length === 0 ? 'Demo Mode' : 'Disconnected'}
+              {isConnected ? 'Live' : stations.length === 0 ? 'Add stations to start' : 'Disconnected'}
             </span>
           </div>
           <span className="text-xs muted">
